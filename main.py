@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 import anthropic
 import alpaca_trade_api as tradeapi
 
-# ── Setup ────────────────────────────────────────────────────────
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 logging.basicConfig(
@@ -28,7 +27,6 @@ claude = anthropic.Anthropic(api_key=config.ANTRHOPIC_API_KEY)
 alpaca = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, base_url=config.BASE_URL, api_version="v2")
 
 
-# ── Data Gathering ───────────────────────────────────────────────
 def fetch_news():
     try:
         url = f"https://newsapi.org/v2/top-headlines?country=us&category=business&pageSize=10&apiKey={config.NEWS_API_KEY}"
@@ -106,12 +104,10 @@ def get_prices(symbols):
     return results
 
 
-# ── Portfolio State ──────────────────────────────────────────────
 def load_portfolio():
     path = os.path.join(PROJECT_DIR, "portfolio.json")
     if os.path.exists(path):
         return json.load(open(path))
-    # Default starting state
     return {
         "last_updated": "",
         "watchlist": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "JPM", "JNJ", "XOM", "V", "PG"],
@@ -130,7 +126,6 @@ def save_portfolio(portfolio, decision, trade_results):
         json.dump(portfolio, f, indent=2)
 
 
-# ── Memory ───────────────────────────────────────────────────────
 def get_recent_journal():
     entries = []
     for i in range(3):
@@ -152,7 +147,6 @@ def save_journal(session_type, decision, trade_results):
         f.write(f"### Journal\n{decision['journal']}\n\n---\n\n")
 
 
-# ── Claude Decision ──────────────────────────────────────────────
 def ask_claude(session_type, news_summary, account, positions, prices):
     strategy = open(os.path.join(PROJECT_DIR, "strategy.md")).read()
     recent_journal = get_recent_journal()
@@ -205,7 +199,13 @@ If watchlist is fine, omit watchlist_updates.
     return json.loads(text.strip())
 
 
-# ── Trade Execution ──────────────────────────────────────────────
+def notify(message):
+    try:
+        requests.post(config.DISCORD_URL, json={"content": message}, timeout=5)
+    except Exception as e:
+        log.error(f"Discord notification failed: {e}")
+
+
 def execute_trades(trades):
     results = []
     for trade in trades:
@@ -225,7 +225,6 @@ def execute_trades(trades):
     return results
 
 
-# ── Main Pipeline ────────────────────────────────────────────────
 def run(session_type):
     print(f"\n{'='*50}")
     print(f"  PM Bot - {session_type.upper()}")
@@ -234,31 +233,25 @@ def run(session_type):
     log.info(f"Starting {session_type} session")
 
     try:
-        # Load state
         portfolio = load_portfolio()
 
-        # Step 1: News
         print("  [1/6] Fetching news...")
         raw = fetch_news()
 
-        # Step 2: Summarize
         print("  [2/6] GPT summarizing...")
         summary = summarize_news(raw)
         print(f"         {summary[:100]}...")
 
-        # Step 3: Market data
         print("  [3/6] Pulling market data...")
         account = get_account()
         positions = get_positions()
         prices = get_prices(portfolio["watchlist"])
         print(f"         Cash: ${account['cash']}  Positions: {len(positions)}")
 
-        # Step 4: Claude decides
         print("  [4/6] Asking Claude...")
         decision = ask_claude(session_type, summary, account, positions, prices)
         print(f"         Analysis: {decision['analysis'][:100]}...")
 
-        # Step 5: Execute
         print("  [5/6] Executing trades...")
         if decision.get("trades"):
             trade_results = execute_trades(decision["trades"])
@@ -266,10 +259,21 @@ def run(session_type):
             trade_results = []
             print("         No trades.")
 
-        # Step 6: Save
         print("  [6/6] Saving state...")
         save_journal(session_type, decision, trade_results)
         save_portfolio(portfolio, decision, trade_results)
+
+        trades_text = "\n".join(
+            f"  {t['action'].upper()} {t['qty']}x {t['symbol']} - {t['reason']}"
+            for t in trade_results
+        ) if trade_results else "  No trades."
+
+        notify(
+            f"**PM Bot - {session_type.upper()}**\n"
+            f"Portfolio: ${account['portfolio_value']}  Cash: ${account['cash']}\n"
+            f"**Trades:**\n{trades_text}\n"
+            f"**Analysis:** {decision['analysis'][:300]}"
+        )
 
         log.info(f"Session complete. Trades: {len(trade_results)}")
         print(f"\n{'='*50}")
@@ -278,6 +282,7 @@ def run(session_type):
 
     except Exception as e:
         log.error(f"Session failed: {e}")
+        notify(f"**PM Bot ERROR**\n{session_type} session failed: {e}")
         print(f"\n  ERROR: {e}")
         print(f"  Check pm.log for details.\n")
 
