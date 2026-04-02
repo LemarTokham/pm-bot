@@ -1,0 +1,6 @@
+config.py
+venv/
+journal/
+*.log
+portfolio.json
+__pycache__/
