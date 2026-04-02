@@ -1,6 +1,3 @@
-# mvp: fetch market data and feed to gpt
-# gpt summarises and gives it to claude
-# claude will make decisions based on summaries
 
 import config
 import json
@@ -194,6 +191,7 @@ If watchlist is fine, omit watchlist_updates.
         messages=[{"role": "user", "content": prompt}],
     )
     text = response.content[0].text
+    # needed as claude returns some formatting in markdown which can mess with json
     if "```" in text:
         text = text.split("```json")[-1].split("```")[0]
     return json.loads(text.strip())
