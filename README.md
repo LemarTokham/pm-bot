@@ -32,17 +32,6 @@ time (ET)  session  what it does
 needs python 3, a vps (or any machine thats always on, a raspberry pi works), and api keys for:
 - alpaca (paper trading) - the broker
 - anthropic (claude) - the decision maker
-- openai (gpt) - the news summarizer
+- openai (gpt) - the news summariser
 - newsapi - the news source
 - discord webhook - notifications
-
-## future ideas
-
-- **multiple competing PMs** - run several with different strategies (aggressive, conservative, momentum, contrarian) on separate paper accounts and see which one wins
-- **debating agents** - bull claude argues for buying, bear claude argues against, PM claude makes the final call
-- **event-driven triggers** - instead of only running on a schedule, have a cheap script watching prices via websocket that wakes claude up when something big happens (stock drops 5%, unusual volume, etc)
-- **news sentiment monitoring** - a cheap model watching a news firehose 24/7 and only pinging claude when something relevant hits
-- **better data** - looking for real-time prices, yfinance for fundamentals, SEC filings via gemini (huge context window can eat a 200 page 10-K)
-- **self-improving strategy** - claude reviews its own past trades weekly, figures out what worked and what didnt, and rewrites its own strategy.md
-- **multi-asset** - stocks + crypto + forex, one PM looking across all of them
-- **dashboard** - a web ui showing portfolio performance vs S&P 500, trade history, journal entries
